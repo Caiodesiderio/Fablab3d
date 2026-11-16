@@ -42,12 +42,13 @@ test('cascading color lookup filters strictly by selected material', () => {
   assert.deepEqual(getColorsForMaterial('Inexistente'), []);
 });
 
-test('validatePrintSubmission rejects empty project, invalid grams, or mismatched color', () => {
+test('validatePrintSubmission rejects empty project, invalid grams, invalid duration, or mismatched color', () => {
   const invalidEmpty = validatePrintSubmission(
     {
       machine: 'Bambu H2D',
       person: 'Alexsandro',
       project: '   ',
+      durationHours: '2.5',
       isMultiColor: false,
       lines: [{ id: '1', material: 'PLA', color: 'Preto', grams: '50' }],
     },
@@ -56,11 +57,39 @@ test('validatePrintSubmission rejects empty project, invalid grams, or mismatche
   assert.equal(invalidEmpty.valid, false);
   assert.ok(invalidEmpty.errors.some((e) => e.includes('projeto')));
 
+  const invalidDuration = validatePrintSubmission(
+    {
+      machine: 'Bambu H2D',
+      person: 'Alexsandro',
+      project: 'Suporte',
+      durationHours: '0',
+      isMultiColor: false,
+      lines: [{ id: '1', material: 'PLA', color: 'Preto', grams: '50' }],
+    },
+    DEFAULT_PEOPLE
+  );
+  assert.equal(invalidDuration.valid, false);
+  assert.ok(invalidDuration.errors.some((e) => e.includes('horas')));
+
+  const tooLongDuration = validatePrintSubmission(
+    {
+      machine: 'Bambu H2D',
+      person: 'Alexsandro',
+      project: 'Suporte',
+      durationHours: '600',
+      isMultiColor: false,
+      lines: [{ id: '1', material: 'PLA', color: 'Preto', grams: '50' }],
+    },
+    DEFAULT_PEOPLE
+  );
+  assert.equal(tooLongDuration.valid, false);
+
   const invalidGrams = validatePrintSubmission(
     {
       machine: 'Bambu H2D',
       person: 'Alexsandro',
       project: 'Suporte',
+      durationHours: '1.5',
       isMultiColor: false,
       lines: [{ id: '1', material: 'PLA', color: 'Preto', grams: '0' }],
     },
@@ -73,6 +102,7 @@ test('validatePrintSubmission rejects empty project, invalid grams, or mismatche
       machine: 'Bambu H2D',
       person: 'Alexsandro',
       project: 'Suporte',
+      durationHours: '1.5',
       isMultiColor: false,
       lines: [{ id: '1', material: 'PETG', color: 'Branco Dental', grams: '30' }],
     },
@@ -87,6 +117,7 @@ test('validatePrintSubmission accepts valid multi-color AMS/CFS submission', () 
       machine: 'Bambu X2D',
       person: 'Bruna',
       project: 'Caixa Sensorial',
+      durationHours: '3.26',
       isMultiColor: true,
       lines: [
         { id: '1', material: 'PLA', color: 'Branco', grams: '42.34' },
@@ -97,11 +128,12 @@ test('validatePrintSubmission accepts valid multi-color AMS/CFS submission', () 
   );
   assert.equal(result.valid, true);
   assert.equal(result.errors.length, 0);
+  assert.equal(result.parsedDurationHours, 3.3);
   assert.equal(result.parsedLines.length, 2);
   assert.equal(result.parsedLines[0].grams, 42.3);
 });
 
-test('aggregateDashboardStats computes totals, rankings, and month filtering accurately', () => {
+test('aggregateDashboardStats computes totals, rankings, deduplicated batch hours, and month filtering accurately', () => {
   const logs: PrintLogRecord[] = [
     {
       id: '1',
@@ -111,6 +143,7 @@ test('aggregateDashboardStats computes totals, rankings, and month filtering acc
       material: 'PLA',
       color: 'Preto',
       grams: 100,
+      durationHours: 3.5,
       isMultiColor: true,
       batchId: 'b1',
       monthKey: '2026-11',
@@ -124,6 +157,7 @@ test('aggregateDashboardStats computes totals, rankings, and month filtering acc
       material: 'ABS',
       color: 'Preto',
       grams: 50,
+      durationHours: 3.5,
       isMultiColor: true,
       batchId: 'b1',
       monthKey: '2026-11',
@@ -137,6 +171,7 @@ test('aggregateDashboardStats computes totals, rankings, and month filtering acc
       material: 'ABS',
       color: 'Vermelho',
       grams: 200,
+      durationHours: 4.0,
       isMultiColor: false,
       batchId: 'b2',
       monthKey: '2026-10',
@@ -146,15 +181,22 @@ test('aggregateDashboardStats computes totals, rankings, and month filtering acc
 
   const allStats = aggregateDashboardStats(logs, 'ALL');
   assert.equal(allStats.totalGrams, 350);
+  assert.equal(allStats.totalHours, 7.5);
   assert.equal(allStats.totalPrints, 2);
   assert.equal(allStats.topMaterial?.name, 'ABS');
   assert.equal(allStats.topMaterial?.grams, 250);
   assert.equal(allStats.topUser?.name, 'Bruna');
   assert.equal(allStats.topUser?.grams, 200);
+  assert.equal(allStats.topUser?.hours, 4.0);
+  assert.deepEqual(allStats.byMachine, [
+    { machine: 'Creality K1 Max 01', grams: 200, hours: 4.0 },
+    { machine: 'Bambu H2D', grams: 150, hours: 3.5 },
+  ]);
   assert.deepEqual(allStats.availableMonths, ['2026-11', '2026-10']);
 
   const novStats = aggregateDashboardStats(logs, '2026-11');
   assert.equal(novStats.totalGrams, 150);
+  assert.equal(novStats.totalHours, 3.5);
   assert.equal(novStats.totalPrints, 1);
   assert.equal(novStats.topUser?.name, 'Alexsandro');
   assert.equal(formatMonthLabel('2026-11'), 'Novembro 2026');

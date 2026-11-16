@@ -43,6 +43,21 @@ export function HistoryTab({
     [filteredLogs]
   );
 
+  const totalFilteredHours = useMemo(() => {
+    const seenBatches = new Set<string>();
+    let total = 0;
+    for (const item of filteredLogs) {
+      const key = item.batchId || item.id;
+      if (!seenBatches.has(key)) {
+        seenBatches.add(key);
+        if (Number.isFinite(item.durationHours) && item.durationHours > 0) {
+          total += item.durationHours;
+        }
+      }
+    }
+    return Math.round(total * 10) / 10;
+  }, [filteredLogs]);
+
   const handleDelete = async (id: string) => {
     setDeletingId(id);
     try {
@@ -76,6 +91,8 @@ export function HistoryTab({
             </span>
             <span aria-hidden="true">·</span>
             <span className="font-mono-tabular">{totalFilteredGrams.toFixed(1)} g totais</span>
+            <span aria-hidden="true">·</span>
+            <span className="font-mono-tabular">{totalFilteredHours.toFixed(1)} h totais</span>
           </div>
         </div>
 
@@ -168,6 +185,9 @@ export function HistoryTab({
                 <th scope="col" className="py-3 pr-4 text-right">
                   Gramas
                 </th>
+                <th scope="col" className="py-3 pr-4 text-right">
+                  Duração
+                </th>
                 <th scope="col" className="py-3 text-right">
                   Ação
                 </th>
@@ -197,6 +217,9 @@ export function HistoryTab({
                   <td className="py-3 pr-4 text-slate-600">{log.color}</td>
                   <td className="font-mono-tabular py-3 pr-4 text-right font-bold text-[#086BFF] whitespace-nowrap">
                     {log.grams.toFixed(1)} g
+                  </td>
+                  <td className="font-mono-tabular py-3 pr-4 text-right text-slate-700 whitespace-nowrap">
+                    {log.durationHours > 0 ? `${log.durationHours.toFixed(1)} h` : '—'}
                   </td>
                   <td className="py-3 text-right">
                     <button

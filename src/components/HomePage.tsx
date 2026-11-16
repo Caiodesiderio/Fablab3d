@@ -41,7 +41,7 @@ export function HomePage({ logs, people, onSelectPage }: HomePageProps) {
             </p>
           </div>
 
-          <div className="grid grid-cols-3 gap-4 border-t border-slate-100 pt-4 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-8">
+          <div className="grid grid-cols-2 gap-4 border-t border-slate-100 pt-4 sm:grid-cols-4 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-8">
             <div>
               <span className="block text-xs text-slate-500">Impressoras</span>
               <span className="font-mono-tabular mt-1 block text-xl font-bold text-[#086BFF]">
@@ -52,6 +52,12 @@ export function HomePage({ logs, people, onSelectPage }: HomePageProps) {
               <span className="block text-xs text-slate-500">Consumo Total</span>
               <span className="font-mono-tabular mt-1 block text-xl font-bold text-slate-900">
                 {(stats.totalGrams / 1000).toFixed(2)} kg
+              </span>
+            </div>
+            <div>
+              <span className="block text-xs text-slate-500">Horas de Uso</span>
+              <span className="font-mono-tabular mt-1 block text-xl font-bold text-[#086BFF]">
+                {stats.totalHours.toFixed(1)} h
               </span>
             </div>
             <div>

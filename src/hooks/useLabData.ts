@@ -35,6 +35,7 @@ export interface NewPrintPayload {
   machine: string;
   person: string;
   project: string;
+  durationHours: number;
   isMultiColor: boolean;
   lines: Array<{
     material: MaterialType;
@@ -123,6 +124,7 @@ export function useLabData() {
             material: data.material as MaterialType,
             color: String(data.color ?? ''),
             grams: Number(data.grams ?? 0),
+            durationHours: Number(data.durationHours ?? 0),
             isMultiColor: Boolean(data.isMultiColor),
             batchId: String(data.batchId ?? d.id),
             monthKey: String(data.monthKey ?? getMonthKey(new Date(ts))),
@@ -190,6 +192,7 @@ export function useLabData() {
             material: line.material,
             color: line.color,
             grams: line.grams,
+            durationHours: payload.durationHours,
             isMultiColor: payload.isMultiColor,
             batchId,
             monthKey,

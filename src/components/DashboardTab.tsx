@@ -273,6 +273,7 @@ export function DashboardTab({ logs, onBackHome }: DashboardTabProps) {
           recipientEmail: trimmedEmail,
           periodLabel,
           totalGrams: stats.totalGrams,
+          totalHours: stats.totalHours,
           totalPrints: stats.totalPrints,
           byMaterial: stats.byMaterial,
           byUser: stats.byUser,
@@ -321,6 +322,7 @@ export function DashboardTab({ logs, onBackHome }: DashboardTabProps) {
           recipientEmail: recipientEmail.trim() || 'relatorio@samsungocean.local',
           periodLabel,
           totalGrams: stats.totalGrams,
+          totalHours: stats.totalHours,
           totalPrints: stats.totalPrints,
           byMaterial: stats.byMaterial,
           byUser: stats.byUser,
@@ -425,12 +427,12 @@ export function DashboardTab({ logs, onBackHome }: DashboardTabProps) {
         </div>
 
         <div className="rounded-2xl border border-[#D8E8FA] bg-white p-5">
-          <span className="text-xs font-medium text-slate-500">Impressões Registadas</span>
+          <span className="text-xs font-medium text-slate-500">Impressões &amp; Tempo</span>
           <p className="font-mono-tabular mt-2 text-2xl font-bold text-slate-900">
             {stats.totalPrints}
           </p>
-          <span className="mt-1 block text-xs text-slate-500">
-            {selectedMonth === 'ALL' ? 'Todo o período' : formatMonthLabel(selectedMonth)}
+          <span className="font-mono-tabular mt-1 block text-xs text-[#086BFF]">
+            {stats.totalHours.toFixed(1)} h acumuladas
           </span>
         </div>
 
@@ -551,9 +553,9 @@ export function DashboardTab({ logs, onBackHome }: DashboardTabProps) {
                   </span>
                 </div>
                 <div>
-                  <span className="block text-[11px] font-medium text-slate-500">Impressões</span>
+                  <span className="block text-[11px] font-medium text-slate-500">Impressões / Tempo</span>
                   <span className="font-mono-tabular mt-0.5 block text-xs font-bold text-slate-900">
-                    {stats.totalPrints}
+                    {stats.totalPrints} · {stats.totalHours.toFixed(1)} h
                   </span>
                 </div>
               </div>

@@ -6,17 +6,20 @@ export interface ReportMaterialRow {
 export interface ReportUserRow {
   person: string;
   grams: number;
+  hours?: number;
 }
 
 export interface ReportMachineRow {
   machine: string;
   grams: number;
+  hours?: number;
 }
 
 export interface ReportPayload {
   recipientEmail: string;
   periodLabel: string;
   totalGrams: number;
+  totalHours?: number;
   totalPrints: number;
   byMaterial: ReportMaterialRow[];
   byUser: ReportUserRow[];
@@ -60,8 +63,16 @@ export function validateReportPayload(
       : 'Todos os meses';
 
   const totalGrams = Number(data.totalGrams ?? 0);
+  const totalHours = Number(data.totalHours ?? 0);
   const totalPrints = Number(data.totalPrints ?? 0);
-  if (!Number.isFinite(totalGrams) || totalGrams < 0 || !Number.isFinite(totalPrints) || totalPrints < 0) {
+  if (
+    !Number.isFinite(totalGrams) ||
+    totalGrams < 0 ||
+    !Number.isFinite(totalHours) ||
+    totalHours < 0 ||
+    !Number.isFinite(totalPrints) ||
+    totalPrints < 0
+  ) {
     return { valid: false, error: 'Totais do relatório inválidos.' };
   }
 
@@ -81,13 +92,25 @@ export function validateReportPayload(
 
   const byUser = toRows(data.byUser, (item) =>
     typeof item.person === 'string' && Number.isFinite(Number(item.grams))
-      ? { person: item.person.slice(0, 80), grams: Math.round(Number(item.grams) * 10) / 10 }
+      ? {
+          person: item.person.slice(0, 80),
+          grams: Math.round(Number(item.grams) * 10) / 10,
+          hours: Number.isFinite(Number(item.hours))
+            ? Math.round(Number(item.hours) * 10) / 10
+            : 0,
+        }
       : null
   );
 
   const byMachine = toRows(data.byMachine, (item) =>
     typeof item.machine === 'string' && Number.isFinite(Number(item.grams))
-      ? { machine: item.machine.slice(0, 64), grams: Math.round(Number(item.grams) * 10) / 10 }
+      ? {
+          machine: item.machine.slice(0, 64),
+          grams: Math.round(Number(item.grams) * 10) / 10,
+          hours: Number.isFinite(Number(item.hours))
+            ? Math.round(Number(item.hours) * 10) / 10
+            : 0,
+        }
       : null
   );
 
@@ -97,6 +120,7 @@ export function validateReportPayload(
       recipientEmail: rawRecipient,
       periodLabel,
       totalGrams: Math.round(totalGrams * 10) / 10,
+      totalHours: Math.round(totalHours * 10) / 10,
       totalPrints: Math.round(totalPrints),
       byMaterial,
       byUser,
@@ -139,13 +163,14 @@ export function buildReportEmailContent(payload: ReportPayload): {
   html: string;
 } {
   const totalKg = (payload.totalGrams / 1000).toFixed(2);
+  const totalHours = Number(payload.totalHours ?? 0);
   const subject = `[Samsung Ocean 3D] Relatório de Filamentos — ${payload.periodLabel}`;
 
   const textLines: string[] = [
     'SAMSUNG OCEAN 3D — RELATÓRIO DE CONSUMO DE FILAMENTOS E RESINAS',
     `Período: ${payload.periodLabel}`,
     `Consumo total: ${payload.totalGrams.toFixed(1)} g (${totalKg} kg)`,
-    `Total de impressões: ${payload.totalPrints}`,
+    `Total de impressões: ${payload.totalPrints} (${totalHours.toFixed(1)} h de impressão)`,
     '',
     '--- Consumo por Material ---',
     ...(payload.byMaterial.length > 0
@@ -154,16 +179,22 @@ export function buildReportEmailContent(payload: ReportPayload): {
     '',
     '--- Ranking de Utilizadores ---',
     ...(payload.byUser.length > 0
-      ? payload.byUser.map((u) => `  • ${u.person}: ${u.grams.toFixed(1)} g`)
+      ? payload.byUser.map(
+          (u) =>
+            `  • ${u.person}: ${u.grams.toFixed(1)} g${u.hours && u.hours > 0 ? ` (${u.hours.toFixed(1)} h)` : ''}`
+        )
       : ['  Sem registos no período.']),
     '',
     '--- Consumo por Impressora ---',
     ...(payload.byMachine.length > 0
-      ? payload.byMachine.map((mac) => `  • ${mac.machine}: ${mac.grams.toFixed(1)} g`)
+      ? payload.byMachine.map(
+          (mac) =>
+            `  • ${mac.machine}: ${mac.grams.toFixed(1)} g${mac.hours && mac.hours > 0 ? ` (${mac.hours.toFixed(1)} h)` : ''}`
+        )
       : ['  Sem registos no período.']),
   ];
 
-  const renderRowsHtml = (rows: Array<{ label: string; grams: number }>) => {
+  const renderRowsHtml = (rows: Array<{ label: string; grams: number; hours?: number }>) => {
     if (rows.length === 0) {
       return `<tr><td colspan="2" style="padding:10px 12px;color:#64748b;font-size:13px;">Sem registos neste período.</td></tr>`;
     }
@@ -172,7 +203,7 @@ export function buildReportEmailContent(payload: ReportPayload): {
         (r) => `
       <tr>
         <td style="padding:9px 12px;border-bottom:1px solid #e2ecf7;color:#0f172a;font-size:13px;">${escapeHtml(r.label)}</td>
-        <td style="padding:9px 12px;border-bottom:1px solid #e2ecf7;color:#086bff;font-weight:700;text-align:right;font-family:monospace;font-size:13px;">${r.grams.toFixed(1)} g</td>
+        <td style="padding:9px 12px;border-bottom:1px solid #e2ecf7;color:#086bff;font-weight:700;text-align:right;font-family:monospace;font-size:13px;">${r.grams.toFixed(1)} g${r.hours && r.hours > 0 ? ` <span style="color:#64748b;font-weight:500;">· ${r.hours.toFixed(1)} h</span>` : ''}</td>
       </tr>`
       )
       .join('');
@@ -198,9 +229,9 @@ export function buildReportEmailContent(payload: ReportPayload): {
           </td>
           <td style="width:12px;"></td>
           <td style="width:50%;padding:14px;background:#f7fbff;border:1px solid #d8e8fa;border-radius:12px;">
-            <div style="font-size:12px;color:#475569;">Impressões Registadas</div>
+            <div style="font-size:12px;color:#475569;">Impressões &amp; Tempo</div>
             <div style="margin-top:4px;font-size:22px;font-weight:700;color:#0f172a;font-family:monospace;">${payload.totalPrints}</div>
-            <div style="margin-top:2px;font-size:12px;color:#64748b;">${escapeHtml(payload.periodLabel)}</div>
+            <div style="margin-top:2px;font-size:12px;color:#64748b;">${totalHours.toFixed(1)} h totais · ${escapeHtml(payload.periodLabel)}</div>
           </td>
         </tr>
       </table>
@@ -212,12 +243,12 @@ export function buildReportEmailContent(payload: ReportPayload): {
 
       <h2 style="margin:0 0 8px;font-size:15px;color:#0f172a;">Ranking de Utilizadores</h2>
       <table style="width:100%;border-collapse:collapse;margin-bottom:22px;border:1px solid #e2ecf7;">
-        ${renderRowsHtml(payload.byUser.map((u) => ({ label: u.person, grams: u.grams })))}
+        ${renderRowsHtml(payload.byUser.map((u) => ({ label: u.person, grams: u.grams, hours: u.hours })))}
       </table>
 
       <h2 style="margin:0 0 8px;font-size:15px;color:#0f172a;">Consumo por Impressora</h2>
       <table style="width:100%;border-collapse:collapse;border:1px solid #e2ecf7;">
-        ${renderRowsHtml(payload.byMachine.map((mac) => ({ label: mac.machine, grams: mac.grams })))}
+        ${renderRowsHtml(payload.byMachine.map((mac) => ({ label: mac.machine, grams: mac.grams, hours: mac.hours })))}
       </table>
 
       <p style="margin:20px 0 0;padding:12px 14px;background:#f7fbff;border:1px solid #d8e8fa;border-radius:10px;font-size:12px;color:#475569;">

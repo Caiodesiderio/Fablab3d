@@ -136,6 +136,7 @@ export async function generatePowerBiReportPdf(
     const topMat = payload.byMaterial[0];
     const topUser = payload.byUser[0];
     const totalGrams = payload.totalGrams;
+    const totalHours = Number(payload.totalHours ?? 0);
 
     const kpis = [
       {
@@ -145,9 +146,9 @@ export async function generatePowerBiReportPdf(
         accent: '#086BFF',
       },
       {
-        label: 'IMPRESSÕES REGISTADAS',
-        value: String(payload.totalPrints),
-        sub: 'lotes no período',
+        label: 'IMPRESSÕES & TEMPO',
+        value: `${payload.totalPrints} (${totalHours.toFixed(1)} h)`,
+        sub: 'lotes e horas de máquina',
         accent: '#0F172A',
       },
       {
@@ -371,16 +372,17 @@ export async function generatePowerBiReportPdf(
         const row = idx % 5;
         const cellX = marginX + 14 + col * (colW + 16);
         const cellY = row3Y + 42 + row * 23;
-        const trackX = cellX + 130;
-        const trackW = colW - 130 - 78;
+        const trackX = cellX + 126;
+        const trackW = colW - 126 - 98;
         const ratio = Math.max(0, Math.min(1, mac.grams / maxMachineGrams));
         const pct = totalGrams > 0 ? ((mac.grams / totalGrams) * 100).toFixed(0) : '0';
+        const hrsText = mac.hours && mac.hours > 0 ? ` · ${mac.hours.toFixed(1)}h` : ` (${pct}%)`;
 
         doc
           .fillColor('#0F172A')
           .font('Helvetica-Bold')
           .fontSize(8.5)
-          .text(truncateText(mac.machine, 22), cellX, cellY + 1, { width: 124 });
+          .text(truncateText(mac.machine, 21), cellX, cellY + 1, { width: 120 });
 
         doc.roundedRect(trackX, cellY + 2, trackW, 9, 3).fill('#EBF3FC');
         if (ratio > 0) {
@@ -392,9 +394,9 @@ export async function generatePowerBiReportPdf(
         doc
           .fillColor('#0F172A')
           .font('Helvetica-Bold')
-          .fontSize(8.5)
-          .text(`${mac.grams.toFixed(1)} g (${pct}%)`, cellX + colW - 74, cellY + 1, {
-            width: 74,
+          .fontSize(8.2)
+          .text(`${mac.grams.toFixed(1)}g${hrsText}`, cellX + colW - 94, cellY + 1, {
+            width: 94,
             align: 'right',
           });
       });

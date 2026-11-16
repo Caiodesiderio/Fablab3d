@@ -60,6 +60,7 @@ export function PrintWizard({
   const [person, setPerson] = useState<string>('');
   const [personSearch, setPersonSearch] = useState<string>('');
   const [project, setProject] = useState<string>('');
+  const [durationHours, setDurationHours] = useState<string>('');
   const [isMultiColor, setIsMultiColor] = useState<boolean>(false);
   const [lines, setLines] = useState<FilamentLineInput[]>(() => [createLine('PLA')]);
   const [errors, setErrors] = useState<string[]>([]);
@@ -69,6 +70,7 @@ export function PrintWizard({
     machine: string;
     person: string;
     totalGrams: number;
+    durationHours: number;
   } | null>(null);
 
   useEffect(() => {
@@ -115,15 +117,26 @@ export function PrintWizard({
 
   const handleContinueFromStep3 = (e: FormEvent) => {
     e.preventDefault();
+    const stepErrors: string[] = [];
     const trimmed = project.trim();
     if (!trimmed) {
-      setErrors(['Informe o nome do projeto antes de avançar.']);
+      stepErrors.push('Informe o nome do projeto antes de avançar.');
+    } else if (trimmed.length > 120) {
+      stepErrors.push('O nome do projeto deve ter no máximo 120 caracteres.');
+    }
+
+    const hoursVal = Number(durationHours);
+    if (!Number.isFinite(hoursVal) || hoursVal <= 0) {
+      stepErrors.push('Informe a duração estimada em horas (> 0).');
+    } else if (hoursVal > 500) {
+      stepErrors.push('A duração máxima por impressão é de 500 horas.');
+    }
+
+    if (stepErrors.length > 0) {
+      setErrors(stepErrors);
       return;
     }
-    if (trimmed.length > 120) {
-      setErrors(['O nome do projeto deve ter no máximo 120 caracteres.']);
-      return;
-    }
+
     setErrors([]);
     setStep(4);
   };
@@ -176,6 +189,7 @@ export function PrintWizard({
         machine,
         person,
         project,
+        durationHours,
         isMultiColor,
         lines,
       },
@@ -194,6 +208,7 @@ export function PrintWizard({
         machine,
         person,
         project,
+        durationHours: validation.parsedDurationHours,
         isMultiColor,
         lines: validation.parsedLines,
       });
@@ -204,6 +219,7 @@ export function PrintWizard({
         machine,
         person,
         totalGrams: totalSaved,
+        durationHours: validation.parsedDurationHours,
       });
 
       // Reset form fields for next print
@@ -211,6 +227,7 @@ export function PrintWizard({
       setPerson('');
       setPersonSearch('');
       setProject('');
+      setDurationHours('');
       setIsMultiColor(false);
       setLines([createLine('PLA')]);
       setStep('success');
@@ -460,22 +477,45 @@ export function PrintWizard({
           </div>
 
           <form onSubmit={handleContinueFromStep3} noValidate className="space-y-6">
-            <div>
-              <label
-                htmlFor="wizard-project-input"
-                className="mb-2 block text-sm font-semibold text-slate-800"
-              >
-                Nome do Projeto
-              </label>
-              <input
-                id="wizard-project-input"
-                type="text"
-                maxLength={120}
-                value={project}
-                onChange={(e) => setProject(e.target.value)}
-                placeholder="Ex.: Suporte Câmera v2"
-                className="w-full rounded-xl border border-[#D8E8FA] bg-[#F7FBFF] px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-[#086BFF] focus:bg-white focus:outline-none"
-              />
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-12">
+              <div className="sm:col-span-8">
+                <label
+                  htmlFor="wizard-project-input"
+                  className="mb-2 block text-sm font-semibold text-slate-800"
+                >
+                  Nome do Projeto
+                </label>
+                <input
+                  id="wizard-project-input"
+                  type="text"
+                  maxLength={120}
+                  value={project}
+                  onChange={(e) => setProject(e.target.value)}
+                  placeholder="Ex.: Suporte Câmera v2"
+                  className="w-full rounded-xl border border-[#D8E8FA] bg-[#F7FBFF] px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-[#086BFF] focus:bg-white focus:outline-none"
+                />
+              </div>
+
+              <div className="sm:col-span-4">
+                <label
+                  htmlFor="wizard-duration-input"
+                  className="mb-2 block text-sm font-semibold text-slate-800"
+                >
+                  Duração Estimada (horas)
+                </label>
+                <input
+                  id="wizard-duration-input"
+                  type="number"
+                  inputMode="decimal"
+                  min="0.1"
+                  max="500"
+                  step="0.1"
+                  value={durationHours}
+                  onChange={(e) => setDurationHours(e.target.value)}
+                  placeholder="Ex.: 2.5"
+                  className="font-mono-tabular w-full rounded-xl border border-[#D8E8FA] bg-[#F7FBFF] px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-[#086BFF] focus:bg-white focus:outline-none"
+                />
+              </div>
             </div>
 
             <div>
@@ -566,6 +606,10 @@ export function PrintWizard({
               <span className="text-slate-600">{person}</span>
               <span aria-hidden="true">·</span>
               <span className="font-medium text-slate-800">{project}</span>
+              <span aria-hidden="true">·</span>
+              <span className="font-mono-tabular font-semibold text-[#086BFF]">
+                {Number(durationHours || 0).toFixed(1)} h
+              </span>
             </div>
             <h1 className="mt-1 text-xl font-bold text-slate-900 sm:text-2xl">
               {isMultiColor ? 'Materiais e Cores (AMS/CFS)' : 'Material, Cor e Gramas'}
@@ -712,6 +756,10 @@ export function PrintWizard({
             O consumo de{' '}
             <strong className="font-mono-tabular text-[#086BFF]">
               {lastSavedSummary.totalGrams.toFixed(1)} g
+            </strong>{' '}
+            em{' '}
+            <strong className="font-mono-tabular text-slate-900">
+              {lastSavedSummary.durationHours.toFixed(1)} h
             </strong>{' '}
             para o projeto <strong>{lastSavedSummary.project}</strong> na máquina{' '}
             <strong>{lastSavedSummary.machine}</strong> ({lastSavedSummary.person}) foi guardado com sucesso.

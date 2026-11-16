@@ -18,6 +18,7 @@ test('generatePowerBiReportPdf returns valid PDF buffer for full report payload'
     recipientEmail: 'akimura@uea.edu.br',
     periodLabel: 'Novembro 2026',
     totalGrams: 1535.0,
+    totalHours: 34.5,
     totalPrints: 9,
     byMaterial: [
       { material: 'PLA', grams: 704.5 },
@@ -28,13 +29,13 @@ test('generatePowerBiReportPdf returns valid PDF buffer for full report payload'
       { material: 'Resina', grams: 48.0 },
     ],
     byUser: [
-      { person: 'Alexsandro', grams: 416.5 },
-      { person: 'Ana Sarah', grams: 310.0 },
-      { person: 'Bruna', grams: 218.0 },
+      { person: 'Alexsandro', grams: 416.5, hours: 10.0 },
+      { person: 'Ana Sarah', grams: 310.0, hours: 8.0 },
+      { person: 'Bruna', grams: 218.0, hours: 5.2 },
     ],
     byMachine: [
-      { machine: 'Bambu H2D', grams: 416.5 },
-      { machine: 'Bambu P2S', grams: 310.0 },
+      { machine: 'Bambu H2D', grams: 416.5, hours: 10.0 },
+      { machine: 'Bambu P2S', grams: 310.0, hours: 8.0 },
     ],
   });
 
@@ -48,10 +49,11 @@ test('generatePowerBiReportPdf handles single-material 100% slice and empty payl
     recipientEmail: 'akimura@uea.edu.br',
     periodLabel: 'Janeiro 2026',
     totalGrams: 200,
+    totalHours: 4.5,
     totalPrints: 1,
     byMaterial: [{ material: 'PLA', grams: 200 }],
-    byUser: [{ person: 'Caio', grams: 200 }],
-    byMachine: [{ machine: 'Bambu A1 Mini', grams: 200 }],
+    byUser: [{ person: 'Caio', grams: 200, hours: 4.5 }],
+    byMachine: [{ machine: 'Bambu A1 Mini', grams: 200, hours: 4.5 }],
   });
   assert.equal(singleBuf.subarray(0, 5).toString('ascii'), '%PDF-');
 
@@ -59,6 +61,7 @@ test('generatePowerBiReportPdf handles single-material 100% slice and empty payl
     recipientEmail: 'akimura@uea.edu.br',
     periodLabel: 'Fevereiro 2026',
     totalGrams: 0,
+    totalHours: 0,
     totalPrints: 0,
     byMaterial: [],
     byUser: [],

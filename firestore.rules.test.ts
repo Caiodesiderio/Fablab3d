@@ -27,4 +27,5 @@ test('firestore.rules enforces email_verified, strict schema keys, and request.t
   assert.match(rulesContent, /incoming\(\)\.createdAt == request\.time/);
   assert.match(rulesContent, /isValidId\(/);
   assert.match(rulesContent, /Creality LD-006/);
+  assert.match(rulesContent, /durationHours/);
 });

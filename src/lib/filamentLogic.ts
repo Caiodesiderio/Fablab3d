@@ -118,6 +118,7 @@ export interface PrintSubmissionInput {
   machine: string;
   person: string;
   project: string;
+  durationHours: string;
   isMultiColor: boolean;
   lines: FilamentLineInput[];
 }
@@ -130,6 +131,7 @@ export interface PrintLogRecord {
   material: MaterialType;
   color: string;
   grams: number;
+  durationHours: number;
   isMultiColor: boolean;
   batchId: string;
   monthKey: string;
@@ -145,6 +147,7 @@ export interface PersonRecord {
 export interface ValidationResult {
   valid: boolean;
   errors: string[];
+  parsedDurationHours: number;
   parsedLines: Array<{
     material: MaterialType;
     color: string;
@@ -235,6 +238,16 @@ export function validatePrintSubmission(
     errors.push('O nome do projeto deve ter no máximo 120 caracteres.');
   }
 
+  const hoursNum = Number(input.durationHours);
+  let parsedDurationHours = 0;
+  if (!Number.isFinite(hoursNum) || hoursNum <= 0) {
+    errors.push('Informe a duração estimada em horas (> 0).');
+  } else if (hoursNum > 500) {
+    errors.push('A duração máxima por impressão é de 500 horas.');
+  } else {
+    parsedDurationHours = Math.round(hoursNum * 10) / 10;
+  }
+
   if (input.lines.length === 0) {
     errors.push('Adicione pelo menos um filamento ou resina.');
   }
@@ -268,20 +281,22 @@ export function validatePrintSubmission(
   });
 
   return {
-    valid: errors.length === 0 && parsedLines.length > 0,
+    valid: errors.length === 0 && parsedLines.length > 0 && parsedDurationHours > 0,
     errors,
+    parsedDurationHours,
     parsedLines,
   };
 }
 
 export interface DashboardStats {
   totalGrams: number;
+  totalHours: number;
   totalPrints: number;
   topMaterial: { name: string; grams: number } | null;
-  topUser: { name: string; grams: number } | null;
+  topUser: { name: string; grams: number; hours: number } | null;
   byMaterial: Array<{ material: string; grams: number }>;
-  byUser: Array<{ person: string; grams: number }>;
-  byMachine: Array<{ machine: string; grams: number }>;
+  byUser: Array<{ person: string; grams: number; hours: number }>;
+  byMachine: Array<{ machine: string; grams: number; hours: number }>;
   availableMonths: string[];
 }
 
@@ -300,35 +315,62 @@ export function aggregateDashboardStats(
 
   const materialMap = new Map<string, number>();
   const userMap = new Map<string, number>();
+  const userHoursMap = new Map<string, number>();
   const machineMap = new Map<string, number>();
+  const machineHoursMap = new Map<string, number>();
   const batchSet = new Set<string>();
   let totalGrams = 0;
+  let totalHours = 0;
 
   for (const log of filtered) {
+    const batchKey = log.batchId || log.id;
+    const isNewBatch = !batchSet.has(batchKey);
+    batchSet.add(batchKey);
+
     totalGrams += log.grams;
-    batchSet.add(log.batchId || log.id);
     materialMap.set(log.material, (materialMap.get(log.material) ?? 0) + log.grams);
     userMap.set(log.person, (userMap.get(log.person) ?? 0) + log.grams);
     machineMap.set(log.machine, (machineMap.get(log.machine) ?? 0) + log.grams);
+
+    if (isNewBatch) {
+      const hours = Number.isFinite(log.durationHours) && log.durationHours > 0 ? log.durationHours : 0;
+      totalHours += hours;
+      userHoursMap.set(log.person, (userHoursMap.get(log.person) ?? 0) + hours);
+      machineHoursMap.set(log.machine, (machineHoursMap.get(log.machine) ?? 0) + hours);
+    }
   }
 
+  const round1 = (v: number) => Math.round(v * 10) / 10;
+
   const byMaterial = Array.from(materialMap.entries())
-    .map(([material, grams]) => ({ material, grams: Math.round(grams * 10) / 10 }))
+    .map(([material, grams]) => ({ material, grams: round1(grams) }))
     .sort((a, b) => b.grams - a.grams);
 
   const byUser = Array.from(userMap.entries())
-    .map(([person, grams]) => ({ person, grams: Math.round(grams * 10) / 10 }))
+    .map(([person, grams]) => ({
+      person,
+      grams: round1(grams),
+      hours: round1(userHoursMap.get(person) ?? 0),
+    }))
     .sort((a, b) => b.grams - a.grams);
 
   const byMachine = Array.from(machineMap.entries())
-    .map(([machine, grams]) => ({ machine, grams: Math.round(grams * 10) / 10 }))
+    .map(([machine, grams]) => ({
+      machine,
+      grams: round1(grams),
+      hours: round1(machineHoursMap.get(machine) ?? 0),
+    }))
     .sort((a, b) => b.grams - a.grams);
 
   return {
-    totalGrams: Math.round(totalGrams * 10) / 10,
+    totalGrams: round1(totalGrams),
+    totalHours: round1(totalHours),
     totalPrints: batchSet.size,
     topMaterial: byMaterial.length > 0 ? { name: byMaterial[0].material, grams: byMaterial[0].grams } : null,
-    topUser: byUser.length > 0 ? { name: byUser[0].person, grams: byUser[0].grams } : null,
+    topUser:
+      byUser.length > 0
+        ? { name: byUser[0].person, grams: byUser[0].grams, hours: byUser[0].hours }
+        : null,
     byMaterial,
     byUser,
     byMachine,
@@ -350,6 +392,7 @@ export function generateSeedPrintLogs(nowMs: number = Date.now()): PrintLogRecor
     material: MaterialType,
     color: string,
     grams: number,
+    durationHours: number,
     isMultiColor: boolean = false,
     batchId: string = id
   ): PrintLogRecord => {
@@ -362,6 +405,7 @@ export function generateSeedPrintLogs(nowMs: number = Date.now()): PrintLogRecor
       material,
       color,
       grams,
+      durationHours,
       isMultiColor,
       batchId,
       monthKey: getMonthKey(new Date(ts)),
@@ -370,15 +414,15 @@ export function generateSeedPrintLogs(nowMs: number = Date.now()): PrintLogRecor
   };
 
   return [
-    mk('seed-1', 2, nowMs, 'Bambu H2D', 'Alexsandro', 'Suporte Sensor LIDAR', 'PETG', 'Laranja', 142.5),
-    mk('seed-2', 5, nowMs, 'Bambu X2D', 'Bruna', 'Carcaça Drone V3', 'ABS', 'Cinza / Grafite', 218.0),
-    mk('seed-3a', 9, nowMs, 'Bambu A1 Mini', 'Eduardo Araujo', 'Organizador Bancada', 'PLA', 'Azul Escuro / Ciano', 84.0, true, 'batch-seed-3'),
-    mk('seed-3b', 9, nowMs, 'Bambu A1 Mini', 'Eduardo Araujo', 'Organizador Bancada', 'PLA', 'Branco', 36.5, true, 'batch-seed-3'),
-    mk('seed-4', 18, nowMs, 'Creality K1 Max 01', 'Felipe', 'Engrenagem Planetária', 'PC', 'Preto', 165.0),
-    mk('seed-5', 26, nowMs, 'Halot-Mage Pro 8K', 'Natália Barros', 'Conector Microfluídico', 'Resina', 'Standard', 48.0),
-    mk('seed-6', 40, nowMs, 'Creality K1 Max 02', 'Gustavo', 'Amortecedor Garra', 'TPU', 'Preto', 62.0),
-    mk('seed-7', 52, nowMs, 'Bambu P2S', 'Ana Sarah', 'Protótipo Exoesqueleto', 'PLA', 'Silk Prata Metal', 310.0),
-    mk('seed-8', 0, prevMonth.getTime(), 'Creality K1 Max 03', 'Kimura', 'Duto Refrigeração', 'ABS', 'Preto', 195.0),
-    mk('seed-9', 24, prevMonth.getTime(), 'Bambu H2D', 'Alexsandro', 'Painel Telemetria', 'PLA', 'Preto', 274.0),
+    mk('seed-1', 2, nowMs, 'Bambu H2D', 'Alexsandro', 'Suporte Sensor LIDAR', 'PETG', 'Laranja', 142.5, 3.5),
+    mk('seed-2', 5, nowMs, 'Bambu X2D', 'Bruna', 'Carcaça Drone V3', 'ABS', 'Cinza / Grafite', 218.0, 5.2),
+    mk('seed-3a', 9, nowMs, 'Bambu A1 Mini', 'Eduardo Araujo', 'Organizador Bancada', 'PLA', 'Azul Escuro / Ciano', 84.0, 4.0, true, 'batch-seed-3'),
+    mk('seed-3b', 9, nowMs, 'Bambu A1 Mini', 'Eduardo Araujo', 'Organizador Bancada', 'PLA', 'Branco', 36.5, 4.0, true, 'batch-seed-3'),
+    mk('seed-4', 18, nowMs, 'Creality K1 Max 01', 'Felipe', 'Engrenagem Planetária', 'PC', 'Preto', 165.0, 4.5),
+    mk('seed-5', 26, nowMs, 'Halot-Mage Pro 8K', 'Natália Barros', 'Conector Microfluídico', 'Resina', 'Standard', 48.0, 2.0),
+    mk('seed-6', 40, nowMs, 'Creality K1 Max 02', 'Gustavo', 'Amortecedor Garra', 'TPU', 'Preto', 62.0, 2.5),
+    mk('seed-7', 52, nowMs, 'Bambu P2S', 'Ana Sarah', 'Protótipo Exoesqueleto', 'PLA', 'Silk Prata Metal', 310.0, 8.0),
+    mk('seed-8', 0, prevMonth.getTime(), 'Creality K1 Max 03', 'Kimura', 'Duto Refrigeração', 'ABS', 'Preto', 195.0, 4.8),
+    mk('seed-9', 24, prevMonth.getTime(), 'Bambu H2D', 'Alexsandro', 'Painel Telemetria', 'PLA', 'Preto', 274.0, 6.5),
   ];
 }

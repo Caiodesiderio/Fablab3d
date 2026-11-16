@@ -51,6 +51,10 @@
           "type": "number",
           "description": "Peso consumido em gramas (maior que 0 e ate 50000g)."
         },
+        "durationHours": {
+          "type": "number",
+          "description": "Duracao estimada da impressao em horas (maior que 0 e ate 500h)."
+        },
         "isMultiColor": {
           "type": "boolean",
           "description": "Indica se a impressao usou multiplas cores (AMS/CFS)."
@@ -96,6 +100,7 @@
         "material",
         "color",
         "grams",
+        "durationHours",
         "isMultiColor",
         "batchId",
         "monthKey",

@@ -168,9 +168,12 @@ async function aggregateMonthFromFirestore(
 
   const materialMap = new Map<string, number>();
   const userMap = new Map<string, number>();
+  const userHoursMap = new Map<string, number>();
   const machineMap = new Map<string, number>();
+  const machineHoursMap = new Map<string, number>();
   const batchSet = new Set<string>();
   let totalGrams = 0;
+  let totalHours = 0;
 
   for (const docSnap of snapshot.docs) {
     const data = docSnap.data();
@@ -181,12 +184,21 @@ async function aggregateMonthFromFirestore(
     const person = String(data.person ?? 'Desconhecido');
     const machine = String(data.machine ?? 'Desconhecida');
     const batchId = String(data.batchId ?? docSnap.id);
+    const hours = Number(data.durationHours ?? 0);
+
+    const isNewBatch = !batchSet.has(batchId);
+    batchSet.add(batchId);
 
     totalGrams += grams;
-    batchSet.add(batchId);
     materialMap.set(material, (materialMap.get(material) ?? 0) + grams);
     userMap.set(person, (userMap.get(person) ?? 0) + grams);
     machineMap.set(machine, (machineMap.get(machine) ?? 0) + grams);
+
+    if (isNewBatch && Number.isFinite(hours) && hours > 0) {
+      totalHours += hours;
+      userHoursMap.set(person, (userHoursMap.get(person) ?? 0) + hours);
+      machineHoursMap.set(machine, (machineHoursMap.get(machine) ?? 0) + hours);
+    }
   }
 
   const round1 = (n: number) => Math.round(n * 10) / 10;
@@ -195,15 +207,24 @@ async function aggregateMonthFromFirestore(
     recipientEmail,
     periodLabel,
     totalGrams: round1(totalGrams),
+    totalHours: round1(totalHours),
     totalPrints: batchSet.size,
     byMaterial: Array.from(materialMap.entries())
       .map(([material, grams]) => ({ material, grams: round1(grams) }))
       .sort((a, b) => b.grams - a.grams),
     byUser: Array.from(userMap.entries())
-      .map(([person, grams]) => ({ person, grams: round1(grams) }))
+      .map(([person, grams]) => ({
+        person,
+        grams: round1(grams),
+        hours: round1(userHoursMap.get(person) ?? 0),
+      }))
       .sort((a, b) => b.grams - a.grams),
     byMachine: Array.from(machineMap.entries())
-      .map(([machine, grams]) => ({ machine, grams: round1(grams) }))
+      .map(([machine, grams]) => ({
+        machine,
+        grams: round1(grams),
+        hours: round1(machineHoursMap.get(machine) ?? 0),
+      }))
       .sort((a, b) => b.grams - a.grams),
   };
 }

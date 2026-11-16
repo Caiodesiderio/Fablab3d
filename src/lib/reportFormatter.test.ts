@@ -18,10 +18,11 @@ test('validateReportPayload validates and normalizes report payload with fallbac
     {
       periodLabel: 'Novembro 2026',
       totalGrams: 425.36,
+      totalHours: 11.46,
       totalPrints: 4,
       byMaterial: [{ material: 'PLA', grams: 300.24 }],
-      byUser: [{ person: 'Caio', grams: 125.12 }],
-      byMachine: [{ machine: 'Creality LD-006', grams: 125.12 }],
+      byUser: [{ person: 'Caio', grams: 125.12, hours: 3.44 }],
+      byMachine: [{ machine: 'Creality LD-006', grams: 125.12, hours: 3.44 }],
     },
     'cd.chaves2005@gmail.com'
   );
@@ -29,7 +30,9 @@ test('validateReportPayload validates and normalizes report payload with fallbac
   assert.equal(res.valid, true);
   assert.equal(res.payload?.recipientEmail, 'cd.chaves2005@gmail.com');
   assert.equal(res.payload?.totalGrams, 425.4);
+  assert.equal(res.payload?.totalHours, 11.5);
   assert.equal(res.payload?.byMaterial[0].grams, 300.2);
+  assert.equal(res.payload?.byUser[0].hours, 3.4);
 
   const bad = validateReportPayload({ totalGrams: -10 }, '');
   assert.equal(bad.valid, false);
@@ -41,19 +44,22 @@ test('getPreviousMonthWindow handles January rollover to December cleanly', () =
   assert.equal(jan.periodLabel, 'Dezembro 2026');
 });
 
-test('buildReportEmailContent generates subject, plain text, and escaped HTML', () => {
+test('buildReportEmailContent generates subject, plain text, hours, and escaped HTML', () => {
   const content = buildReportEmailContent({
     recipientEmail: 'coord@ocean.org',
     periodLabel: 'Outubro 2026',
     totalGrams: 1250,
+    totalHours: 18.5,
     totalPrints: 6,
     byMaterial: [{ material: 'PLA', grams: 800 }],
-    byUser: [{ person: 'Estephany <Lab>', grams: 800 }],
-    byMachine: [{ machine: 'Bambu P2S', grams: 800 }],
+    byUser: [{ person: 'Estephany <Lab>', grams: 800, hours: 10.2 }],
+    byMachine: [{ machine: 'Bambu P2S', grams: 800, hours: 10.2 }],
   });
 
   assert.ok(content.subject.includes('Outubro 2026'));
   assert.ok(content.text.includes('1250.0 g (1.25 kg)'));
+  assert.ok(content.text.includes('18.5 h de impressão'));
   assert.ok(content.html.includes('Estephany &lt;Lab&gt;'));
+  assert.ok(content.html.includes('18.5 h totais'));
   assert.ok(content.html.includes('#086bff'));
 });
