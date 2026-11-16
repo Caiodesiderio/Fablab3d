@@ -1,0 +1,6 @@
+{
+  "name": "FabLab 3D — Controle de Filamentos",
+  "description": "Sistema de controle de consumo de filamentos e resinas para laboratório de impressão 3D com integração Firebase e monitoramento IoT.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

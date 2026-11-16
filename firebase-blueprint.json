@@ -1,0 +1,187 @@
+{
+  "entities": {
+    "PrintLog": {
+      "title": "PrintLog",
+      "description": "Registro individual de consumo de filamento ou resina em uma impressora 3D do laboratorio.",
+      "type": "object",
+      "properties": {
+        "machine": {
+          "type": "string",
+          "enum": [
+            "Bambu H2D",
+            "Bambu P2S",
+            "Bambu X2D",
+            "Bambu A1 Mini",
+            "Creality K1 Max 01",
+            "Creality K1 Max 02",
+            "Creality K1 Max 03",
+            "Halot-Mage Pro 8K",
+            "Creality LD-006"
+          ],
+          "minLength": 3,
+          "maxLength": 64,
+          "description": "Nome da impressora 3D utilizada."
+        },
+        "person": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "Nome da pessoa responsavel pela impressao."
+        },
+        "project": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120,
+          "description": "Nome ou identificador do projeto impresso."
+        },
+        "material": {
+          "type": "string",
+          "enum": ["ABS", "PC", "PETG", "PLA", "Resina", "TPU"],
+          "minLength": 2,
+          "maxLength": 32,
+          "description": "Tipo de material consumido."
+        },
+        "color": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "Cor especifica do filamento ou resina."
+        },
+        "grams": {
+          "type": "number",
+          "description": "Peso consumido em gramas (maior que 0 e ate 50000g)."
+        },
+        "isMultiColor": {
+          "type": "boolean",
+          "description": "Indica se a impressao usou multiplas cores (AMS/CFS)."
+        },
+        "batchId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Identificador de lote para agrupar linhas de uma mesma impressao AMS/CFS."
+        },
+        "monthKey": {
+          "type": "string",
+          "minLength": 7,
+          "maxLength": 7,
+          "pattern": "^[0-9]{4}-[0-9]{2}$",
+          "description": "Chave de mes no formato YYYY-MM para filtragem no Dashboard."
+        },
+        "visibility": {
+          "type": "string",
+          "enum": ["lab"],
+          "minLength": 3,
+          "maxLength": 16,
+          "description": "Escopo de visibilidade compartilhada no laboratorio."
+        },
+        "createdByUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID do utilizador autenticado que registou a impressao."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp do servidor Firestore no momento do registo."
+        }
+      },
+      "required": [
+        "machine",
+        "person",
+        "project",
+        "material",
+        "color",
+        "grams",
+        "isMultiColor",
+        "batchId",
+        "monthKey",
+        "visibility",
+        "createdByUid",
+        "createdAt"
+      ]
+    },
+    "Person": {
+      "title": "Person",
+      "description": "Membro autorizado do laboratorio listado no dropdown de selecao.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "Nome exibido da pessoa."
+        },
+        "normalizedName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "Nome normalizado em minusculas para ordenacao e unicidade."
+        },
+        "visibility": {
+          "type": "string",
+          "enum": ["lab"],
+          "minLength": 3,
+          "maxLength": 16,
+          "description": "Escopo de visibilidade no laboratorio."
+        },
+        "createdByUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID do administrador ou utilizador que cadastrou a pessoa."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp do servidor Firestore."
+        }
+      },
+      "required": [
+        "name",
+        "normalizedName",
+        "visibility",
+        "createdByUid",
+        "createdAt"
+      ]
+    },
+    "AdminUser": {
+      "title": "AdminUser",
+      "description": "Documento de privilegio administrativo indexado por UID.",
+      "type": "object",
+      "properties": {
+        "role": {
+          "type": "string",
+          "enum": ["admin"],
+          "minLength": 5,
+          "maxLength": 16,
+          "description": "Papel administrativo fixo."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp de criacao."
+        }
+      },
+      "required": ["role", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/print_logs/{logId}": {
+      "schema": { "$ref": "#/entities/PrintLog" },
+      "description": "Colecao principal de registos de consumo de filamento e resina."
+    },
+    "/people/{personId}": {
+      "schema": { "$ref": "#/entities/Person" },
+      "description": "Lista gerida de utilizadores do laboratorio (inicializada com 22 membros)."
+    },
+    "/admins/{uid}": {
+      "schema": { "$ref": "#/entities/AdminUser" },
+      "description": "Registo de administradores autorizados."
+    }
+  }
+}

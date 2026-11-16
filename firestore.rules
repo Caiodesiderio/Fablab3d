@@ -1,0 +1,195 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net (Default Deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Primitive Helpers ---
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isVerifiedUser() && (
+        request.auth.token.email == 'cd.chaves2005@gmail.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isValidMachine(machine) {
+      return machine is string && machine.size() >= 3 && machine.size() <= 64 && machine in [
+        'Bambu H2D',
+        'Bambu P2S',
+        'Bambu X2D',
+        'Bambu A1 Mini',
+        'Creality K1 Max 01',
+        'Creality K1 Max 02',
+        'Creality K1 Max 03',
+        'Halot-Mage Pro 8K',
+        'Creality LD-006'
+      ];
+    }
+
+    function isValidMaterial(material) {
+      return material is string && material.size() >= 2 && material.size() <= 32 && material in [
+        'ABS',
+        'PC',
+        'PETG',
+        'PLA',
+        'Resina',
+        'TPU'
+      ];
+    }
+
+    function isValidPrintLog(data) {
+      return data.keys().hasAll([
+          'machine',
+          'person',
+          'project',
+          'material',
+          'color',
+          'grams',
+          'isMultiColor',
+          'batchId',
+          'monthKey',
+          'visibility',
+          'createdByUid',
+          'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'machine',
+          'person',
+          'project',
+          'material',
+          'color',
+          'grams',
+          'isMultiColor',
+          'batchId',
+          'monthKey',
+          'visibility',
+          'createdByUid',
+          'createdAt'
+        ])
+        && isValidMachine(data.machine)
+        && data.person is string && data.person.size() >= 1 && data.person.size() <= 80
+        && data.project is string && data.project.size() >= 1 && data.project.size() <= 120
+        && isValidMaterial(data.material)
+        && data.color is string && data.color.size() >= 1 && data.color.size() <= 80
+        && (data.grams is int || data.grams is float) && data.grams > 0 && data.grams <= 50000
+        && data.isMultiColor is bool
+        && data.batchId is string && data.batchId.size() >= 1 && data.batchId.size() <= 64 && data.batchId.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.monthKey is string && data.monthKey.size() == 7 && data.monthKey.matches('^[0-9]{4}-[0-9]{2}$')
+        && data.visibility is string && data.visibility == 'lab'
+        && data.createdByUid is string && data.createdByUid.size() >= 1 && data.createdByUid.size() <= 128 && data.createdByUid.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.createdAt is timestamp;
+    }
+
+    function isValidPerson(data) {
+      return data.keys().hasAll(['name', 'normalizedName', 'visibility', 'createdByUid', 'createdAt'])
+        && data.keys().hasOnly(['name', 'normalizedName', 'visibility', 'createdByUid', 'createdAt'])
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 80
+        && data.normalizedName is string && data.normalizedName.size() >= 1 && data.normalizedName.size() <= 80
+        && data.visibility is string && data.visibility == 'lab'
+        && data.createdByUid is string && data.createdByUid.size() >= 1 && data.createdByUid.size() <= 128 && data.createdByUid.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.createdAt is timestamp;
+    }
+
+    function isValidAdmin(data) {
+      return data.keys().hasAll(['role', 'createdAt'])
+        && data.keys().hasOnly(['role', 'createdAt'])
+        && data.role is string && data.role == 'admin'
+        && data.createdAt is timestamp;
+    }
+
+    // --- Connection Probe Doc ---
+    match /test/connection {
+      allow get: if isVerifiedUser();
+    }
+
+    // --- Print Logs Collection ---
+    match /print_logs/{logId} {
+      allow get: if isVerifiedUser() && isValidId(logId) && (isAdmin() || existing().visibility == 'lab');
+      allow list: if isVerifiedUser() && existing().visibility == 'lab';
+
+      allow create: if isVerifiedUser()
+        && isValidId(logId)
+        && isValidPrintLog(incoming())
+        && incoming().createdByUid == request.auth.uid
+        && incoming().createdAt == request.time;
+
+      allow update: if isVerifiedUser()
+        && isValidId(logId)
+        && isValidPrintLog(incoming())
+        && (isAdmin() || existing().createdByUid == request.auth.uid)
+        && incoming().createdByUid == existing().createdByUid
+        && incoming().createdAt == existing().createdAt
+        && incoming().isMultiColor == existing().isMultiColor
+        && incoming().batchId == existing().batchId
+        && incoming().visibility == existing().visibility
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'machine',
+          'person',
+          'project',
+          'material',
+          'color',
+          'grams',
+          'monthKey'
+        ]);
+
+      allow delete: if isVerifiedUser()
+        && isValidId(logId)
+        && (isAdmin() || existing().createdByUid == request.auth.uid);
+    }
+
+    // --- People Collection ---
+    match /people/{personId} {
+      allow get: if isVerifiedUser() && isValidId(personId) && (isAdmin() || existing().visibility == 'lab');
+      allow list: if isVerifiedUser() && existing().visibility == 'lab';
+
+      allow create: if isVerifiedUser()
+        && isValidId(personId)
+        && isValidPerson(incoming())
+        && incoming().createdByUid == request.auth.uid
+        && incoming().createdAt == request.time;
+
+      allow update: if isVerifiedUser()
+        && isValidId(personId)
+        && isValidPerson(incoming())
+        && (isAdmin() || existing().createdByUid == request.auth.uid)
+        && incoming().createdByUid == existing().createdByUid
+        && incoming().createdAt == existing().createdAt
+        && incoming().visibility == existing().visibility
+        && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'normalizedName']);
+
+      allow delete: if isVerifiedUser()
+        && isValidId(personId)
+        && (isAdmin() || existing().createdByUid == request.auth.uid);
+    }
+
+    // --- Admins Collection ---
+    match /admins/{uid} {
+      allow get: if isVerifiedUser() && isValidId(uid) && (request.auth.uid == uid || isAdmin());
+      allow create, update: if isAdmin() && isValidId(uid) && isValidAdmin(incoming()) && incoming().createdAt == request.time;
+      allow delete: if isAdmin() && isValidId(uid);
+    }
+  }
+}
